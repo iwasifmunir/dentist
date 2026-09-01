@@ -2,9 +2,6 @@
    CLIENT DATA — for a new client, change ONLY this file.
    ============================================================= */
 
-var PX = 'https://images.pexels.com/photos/';
-function px(id, w) { return PX + id + '/pexels-photo-' + id + '.jpeg?auto=compress&cs=tinysrgb&w=' + (w || 900); }
-
 window.CLINIC = {
   /* --- Basic --- */
   name: "SmileLab",
@@ -17,6 +14,7 @@ window.CLINIC = {
   whatsapp: "923001234567",          // country code + number, no + and no spaces
   email: "hello@smilelab.pk",
   address: "24-C, Main Boulevard, Gulberg III, Lahore",
+  country: "PK",                     // ISO code, used in the structured data
   mapQuery: "Main Boulevard Gulberg III Lahore",
 
   /* Emergency line — answered outside clinic hours */
@@ -51,15 +49,16 @@ window.CLINIC = {
     patientCount: "+2k"
   },
 
-  /* --- Photos --- */
+  /* --- Photos — all local, nothing hotlinked --- */
   photos: {
-    /* Hero cut-out — transparent background, shipped in assets/img */
-    heroResult:   "assets/img/hero-before-after.webp",
-    /* Review avatars — still Pexels demo images, swap for delivery */
-    patientWoman: px(4584568, 900),    // South Asian woman, studio
-    avatar1:      px(4584566, 400),
-    avatar2:      px(17261596, 400),
-    avatar3:      px(9969335, 400)
+    /* Hero cut-out — transparent background */
+    heroResult: "assets/img/hero-before-after.webp",
+    /* The little face cluster next to the headline. Any number of them. */
+    avatars: [
+      "assets/img/avatar-1.webp",
+      "assets/img/avatar-2.webp",
+      "assets/img/avatar-3.webp"
+    ]
   },
 
   /* --- Stats strip --- */

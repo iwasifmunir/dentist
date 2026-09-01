@@ -36,31 +36,53 @@ Don't open it over `file://` — `data.js` is loaded as a script and the images 
 | `faq` | The FAQ accordion — this is most of the page's SEO |
 | `stats`, `process`, `reviews`, `hours` | Straight content |
 
-Also update `<title>`, `<meta name="description">` and `<link rel="canonical">` in `index.html` — those aren't driven by JS.
+| `country` | ISO code (`PK`), used in the structured data |
+
+Also update `<title>`, `<meta name="description">`, the `og:*` tags and `<link rel="canonical">` in `index.html` — those aren't driven by JS. Same again in every service page.
+
+---
+
+## Structured data
+
+`app.js` §12 builds a **`Dentist`** JSON-LD block from `data.js` and injects it into `<head>`. This is what feeds Google's local pack; without it the site ranks on page text alone. It is generated rather than hand-written so a new client still only edits one file.
+
+It reads `name`, `address`, `country`, `city`, `phoneRaw`, `email`, `socials`, `services` and `hours` — parsing `"Monday – Thursday"` / `"11:00 AM – 9:00 PM"` into proper `openingHoursSpecification` entries. A row it can't parse (`"Closed — emergency line open"`) is **skipped, not guessed**.
+
+Two things to know:
+
+- **No `aggregateRating`, deliberately.** Rating markup a business supplies about itself is self-serving; Google discounts it and can penalise it. Real ratings live on the Google listing — that's what `googleReviewsUrl` links to.
+- It is injected by JS. Google renders JS and picks this up, but a static block is strictly safer. When the generator script gets built, have it bake this into the HTML at build time and drop the runtime injection.
 
 ---
 
 ## ⚠️ Photos
 
-The **review avatars are still Pexels demo images, hotlinked**. For a real client:
-
-1. Get the client's own photos (or shoot the clinic)
-2. Put them in `assets/img/`
-3. Point the `photos` object at local paths:
+**Nothing is hotlinked.** Every image is a local file in `assets/img/`; the only external requests the page makes are the two Google Fonts hosts. Keep it that way — hotlinked stock is slow, can vanish, and the people in it are not that clinic's patients.
 
 ```js
 photos: {
-  heroResult:   'assets/img/hero-before-after.webp',  // the hero cut-out
-  patientWoman: 'assets/img/avatar-1.jpg',
-  avatar1:      'assets/img/avatar-2.jpg',
-  avatar2:      'assets/img/avatar-3.jpg',
-  avatar3:      'assets/img/avatar-4.jpg'
+  heroResult: 'assets/img/hero-before-after.webp',   // the hero cut-out
+  avatars: [                                          // face cluster, any length
+    'assets/img/avatar-1.webp',
+    'assets/img/avatar-2.webp',
+    'assets/img/avatar-3.webp'
+  ]
 }
 ```
 
-`heroResult` is the hero image — a **before/after pair in one file, with a transparent background**. It renders with nothing behind it, so a supplied image that still has its own backdrop will look like a pasted rectangle. Same rule as the slider below: this one is a sample, not a patient of this clinic. Swap it.
+`heroResult` is a **before/after pair in one file, with a transparent background**. It renders with nothing behind it, so a supplied image that still has its own backdrop will look like a pasted rectangle.
 
-**Never ship hotlinked stock on a live client site.** It's slow, and the people in those photos are not that clinic's patients.
+`assets/img/og-cover.jpg` is the **1200×630 link preview** — what a lead sees when the site is sent to them on WhatsApp. Regenerate it whenever the hero image changes:
+
+```bash
+ffmpeg -f lavfi -i color=c=0x4E9BD6:s=1200x630 -i assets/img/hero-before-after.webp \
+  -filter_complex "[1]scale=1060:-1[h];[0][h]overlay=(W-w)/2:(H-h)/2+22" \
+  -frames:v 1 -q:v 3 assets/img/og-cover.jpg
+```
+
+JPEG on purpose — WhatsApp's preview fetcher is unreliable with WebP.
+
+All the shipped images are **samples, not this clinic's patients**. Swap them.
 
 The dentist section has **no photograph** — it runs as two text columns (bio + numbers on the left, qualifications on the right). A stock photo of some other dentist there is worse than none.
 

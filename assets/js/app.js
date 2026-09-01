@@ -47,7 +47,7 @@
   (function avatars() {
     var box = $('#avatars');
     if (!box) return;
-    [P.patientWoman, P.avatar2, P.avatar3].forEach(function (src) {
+    (P.avatars || []).forEach(function (src) {
       if (!src) return;
       var img = document.createElement('img');
       img.src = src; img.alt = ''; img.loading = 'lazy';
@@ -428,6 +428,128 @@
     window.addEventListener('resize', function () {
       if (window.innerWidth > 940) setOpen(false);
     });
+  })();
+
+  /* ---------- 12. LocalBusiness structured data ----------
+     Built from data.js so a new client still only edits that one file.
+     This is what feeds Google's local pack; without it the site ranks on
+     text alone. Deliberately NO aggregateRating: review markup a business
+     supplies about itself is self-serving and Google discounts or
+     penalises it — real ratings belong on the Google listing.          */
+  (function () {
+    if (!D.name) return;
+
+    var DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+    var DASH = /\s*[–—-]\s*/;   // en dash, em dash or hyphen
+
+    function dayIndex(s) {
+      s = (s || '').trim().toLowerCase();
+      if (!s) return -1;
+      for (var i = 0; i < 7; i++) {
+        if (DAYS[i].toLowerCase().indexOf(s) === 0) return i;
+      }
+      return -1;
+    }
+
+    // "Monday – Thursday" -> four day names; "Friday" -> one
+    function daysFrom(label) {
+      var parts = String(label).split(DASH);
+      var a = dayIndex(parts[0]);
+      if (a < 0) return null;
+      var b = parts.length > 1 ? dayIndex(parts[1]) : a;
+      if (b < 0) b = a;
+      var out = [], i = a;
+      for (var guard = 0; guard < 8; guard++) {
+        out.push(DAYS[i]);
+        if (i === b) return out;
+        i = (i + 1) % 7;
+      }
+      return out;
+    }
+
+    function to24(t) {
+      var m = /(\d{1,2})(?::(\d{2}))?\s*(am|pm)/i.exec(t || '');
+      if (!m) return null;
+      var h = parseInt(m[1], 10);
+      var ap = m[3].toLowerCase();
+      if (ap === 'pm' && h !== 12) h += 12;
+      if (ap === 'am' && h === 12) h = 0;
+      return (h < 10 ? '0' : '') + h + ':' + (m[2] || '00');
+    }
+
+    // Anything that isn't a real time range (e.g. "Closed") is skipped
+    // rather than guessed at — better no data than wrong data.
+    function hoursSpec() {
+      var out = [];
+      (D.hours || []).forEach(function (row) {
+        var days = daysFrom(row.day);
+        if (!days) return;
+        var t = String(row.time).split(DASH);
+        if (t.length < 2) return;
+        var opens = to24(t[0]), closes = to24(t[1]);
+        if (!opens || !closes) return;
+        out.push({
+          '@type': 'OpeningHoursSpecification',
+          dayOfWeek: days.map(function (d) { return 'https://schema.org/' + d; }),
+          opens: opens,
+          closes: closes
+        });
+      });
+      return out;
+    }
+
+    function meta(prop) {
+      var n = document.querySelector('meta[property="' + prop + '"]');
+      return n ? n.content : '';
+    }
+    var canonical = document.querySelector('link[rel="canonical"]');
+    var pageUrl = canonical ? canonical.href : location.href;
+
+    // The address already ends with the city; don't repeat it in streetAddress.
+    var street = String(D.address || '').replace(new RegExp(',\\s*' + (D.city || '') + '\\s*$', 'i'), '');
+
+    var ld = {
+      '@context': 'https://schema.org',
+      '@type': 'Dentist',
+      name: D.name,
+      description: meta('og:description') || (D.hero && D.hero.text) || '',
+      url: pageUrl,
+      telephone: D.phoneRaw || D.phone || '',
+      priceRange: '$$',
+      medicalSpecialty: 'Dentistry'
+    };
+
+    var img = meta('og:image');
+    if (img) ld.image = img;
+    if (D.email) ld.email = D.email;
+    if (D.city) ld.areaServed = D.city;
+
+    if (D.address) {
+      ld.address = {
+        '@type': 'PostalAddress',
+        streetAddress: street,
+        addressLocality: D.city || '',
+        addressCountry: D.country || 'PK'
+      };
+    }
+
+    var hs = hoursSpec();
+    if (hs.length) ld.openingHoursSpecification = hs;
+
+    if (D.services && D.services.length) {
+      ld.availableService = D.services.map(function (s) {
+        return { '@type': 'MedicalProcedure', name: s.title };
+      });
+    }
+
+    if (D.socials && D.socials.length) {
+      ld.sameAs = D.socials.map(function (s) { return s.url; }).filter(Boolean);
+    }
+
+    var tag = document.createElement('script');
+    tag.type = 'application/ld+json';
+    tag.textContent = JSON.stringify(ld, null, 2);
+    document.head.appendChild(tag);
   })();
 
 })();
